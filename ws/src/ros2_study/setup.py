@@ -12,6 +12,7 @@ setup(
     entry_points={'console_scripts': [
         # 01 노드
         'node_basics = ros2_study.node_basics:main',
+        'param_callbacks = ros2_study.param_callbacks:main',
         # 02 토픽
         'topic_talker = ros2_study.topic_demo:talker',
         'topic_listener = ros2_study.topic_demo:listener',

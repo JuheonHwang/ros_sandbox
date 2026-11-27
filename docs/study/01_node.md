@@ -110,6 +110,7 @@ log.error('error: 문제가 생김')
 ```
 
 - `create_timer(주기_초, 콜백)`: `spin()`이 도는 동안 주기마다 콜백을 불러 줍니다. 반환값을 `self.timer`에 보관하는 이유는 나중에 주기를 바꾸기 위해서입니다.
+- `self.on_timer`는 이 클래스에 정의된 메서드(아래 4)절의 `def on_timer(self)`)입니다. **괄호 없이** 넘기는 것이 핵심입니다. `self.on_timer()`는 지금 바로 실행해서 결과값을 넘기는 것이고, `self.on_timer`는 "나중에 이 함수를 불러 줘"라고 함수 자체를 맡기는 것입니다. 이렇게 맡겨 두는 함수를 **콜백**이라고 부르고, 실제로 부르는 쪽은 `spin()`입니다. 토픽 구독, 서비스도 같은 방식입니다.
 - 로거 레벨은 `DEBUG < INFO < WARN < ERROR < FATAL` 순서입니다. 기본 레벨이 INFO라서 debug 줄은 평소에 안 보입니다. `print()` 대신 로거를 쓰면 시간·노드 이름이 함께 찍히고, `/rosout` 토픽으로도 나가서 다른 도구로 모아 볼 수 있습니다.
 
 ### 4) 실행 중 파라미터 변경에 반응하기
@@ -130,7 +131,74 @@ def on_timer(self):
 
 - `greeting`은 다음 틱부터 바로 바뀝니다.
 - `rate`가 바뀌면 타이머 주기를 바꿉니다. 타이머를 새로 만들 필요 없이 `timer_period_ns`만 바꾸면 됩니다. `reset()`을 부르지 않으면 이미 예약된 다음 틱은 옛 주기대로 옵니다.
-- 이 방식의 한계: 변경이 **다음 틱에** 반영됩니다. rate가 0.1 Hz면 최대 10초 늦게 반영됩니다. 바로 반응해야 하면 `add_post_set_parameters_callback()`으로 "값이 바뀐 직후" 불리는 콜백을 등록하는 방법이 있습니다.
+- 이 방식의 한계: 변경이 **다음 틱에** 반영됩니다. rate가 0.1 Hz면 최대 10초 늦게 반영됩니다. 바로 반응해야 하면 아래처럼 파라미터 콜백을 씁니다.
+
+#### 다른 방법: 바뀌는 순간 불리는 파라미터 콜백
+
+[`param_callbacks.py`](../../ws/src/ros2_study/ros2_study/param_callbacks.py)는 같은 일을 "매번 다시 읽기" 대신 콜백으로 합니다. rclpy에는 파라미터 콜백이 세 종류 있습니다.
+
+| 등록 함수 | 언제 불리나 | 할 수 있는 일 |
+|---|---|---|
+| `add_pre_set_parameters_callback` | 검증 **전** | 바꾸려는 값 목록을 고치거나 다른 파라미터를 끼워 넣기 |
+| `add_on_set_parameters_callback` | 값이 바뀌기 **전** | 검증. `successful=False`를 돌려주면 변경이 거절됨 |
+| `add_post_set_parameters_callback` | 값이 바뀐 **뒤** | 반응만 (거절 불가). 타이머 주기 바꾸기 등 |
+
+이 예제는 자주 쓰는 두 개, 검증(on_set)과 반응(post_set)을 짝으로 씁니다.
+
+```python
+self.add_on_set_parameters_callback(self.validate)      # ① 바꾸기 전: 거절 가능
+self.add_post_set_parameters_callback(self.on_changed)  # ② 바뀐 뒤: 반응만
+
+def validate(self, params):
+    for p in params:
+        if p.name == 'rate' and p.value <= 0.0:
+            return SetParametersResult(successful=False, reason='rate는 0보다 커야 합니다')
+    return SetParametersResult(successful=True)
+
+def on_changed(self, params):
+    for p in params:
+        self.get_logger().info(f'변경됨: {p.name} = {p.value}')
+        if p.name == 'rate':
+            self.timer.timer_period_ns = int(1e9 / p.value)
+            self.timer.reset()
+```
+
+- `params`에는 **이번에 바뀌는 파라미터만** 들어옵니다. 그래서 `p.name`으로 무엇이 바뀌었는지 확인합니다.
+- 검증은 반드시 on_set 쪽에서 합니다. post_set은 이미 값이 바뀐 뒤라서 거절할 수 없습니다.
+- 두 콜백도 `spin()` 안에서 다른 콜백과 같은 줄에 서서 실행됩니다(05장). 짧게 끝내야 합니다.
+
+실행해 보면(터미널 1에서 노드, 터미널 2에서 `ros2 param set`) 이렇게 나옵니다. 실제 출력입니다.
+
+```text
+# 터미널 1
+$ ros2 run ros2_study param_callbacks
+# 터미널 2
+$ ros2 param set /param_callbacks rate 2.0
+Set parameter successful
+$ ros2 param set /param_callbacks greeting 안녕
+Set parameter successful
+$ ros2 param set /param_callbacks rate -1.0
+Setting parameter failed: rate는 0보다 커야 합니다
+$ ros2 param get /param_callbacks rate
+Double value is: 2.0
+```
+
+```text
+# 터미널 1 로그 (시각 생략)
+[param_callbacks]: hello
+[param_callbacks]: 변경됨: rate = 2.0
+[param_callbacks]: hello
+[param_callbacks]: 변경됨: greeting = 안녕
+[param_callbacks]: 안녕
+[param_callbacks]: 안녕
+```
+
+`rate -1.0`은 검증에서 거절되어 값이 2.0 그대로이고, 거절된 변경에는 `변경됨` 로그(post_set)가 찍히지 않습니다.
+
+| 방식 | 장점 | 단점 |
+|---|---|---|
+| 타이머에서 매번 다시 읽기 (`node_basics.py`) | 코드가 가장 단순 | 다음 틱까지 늦게 반영. 매번 읽는 비용 |
+| 파라미터 콜백 (`param_callbacks.py`) | 바뀌는 순간 반응, 잘못된 값 거절 | 콜백 코드가 늘어남 |
 
 ### 5) 시작과 깔끔한 종료
 
