@@ -157,13 +157,17 @@ def validate(self, params):
 
 def on_changed(self, params):
     for p in params:
-        self.get_logger().info(f'변경됨: {p.name} = {p.value}')
+        self.get_logger().info(f'설정됨: {p.name} = {p.value}')
         if p.name == 'rate':
-            self.timer.timer_period_ns = int(1e9 / p.value)
-            self.timer.reset()
+            period_ns = int(1e9 / p.value)
+            if self.timer.timer_period_ns != period_ns:  # 같은 값이면 타이머를 건드리지 않음
+                self.timer.timer_period_ns = period_ns
+                self.timer.reset()
+                self.get_logger().info(f'타이머 주기 변경 → {p.value} Hz')
 ```
 
-- `params`에는 **이번에 바뀌는 파라미터만** 들어옵니다. 그래서 `p.name`으로 무엇이 바뀌었는지 확인합니다.
+- `params`에는 노드의 모든 파라미터가 아니라 **이번 set 요청에 들어 있던 파라미터만** 들어옵니다. `rate`만 set하면 `rate`만 들어옵니다. 그래서 `p.name`으로 무엇이 왔는지 확인합니다.
+- 단, **"요청에 들어 있었다" ≠ "값이 바뀌었다"** 입니다. 같은 값으로 다시 set해도 콜백이 불리고, `ros2 param load`로 여러 개를 한꺼번에 넣으면 그대로인 값까지 전부 들어옵니다(실제로 확인함). 그래서 로그는 "설정됨"이라고 쓰고, 정말 바뀌었을 때만 할 일(타이머 `reset()`)은 현재 값과 직접 비교한 뒤에 합니다. 비교하지 않으면 같은 값을 넣을 때마다 타이머가 다시 시작돼 주기가 흔들립니다.
 - 검증은 반드시 on_set 쪽에서 합니다. post_set은 이미 값이 바뀐 뒤라서 거절할 수 없습니다.
 - 두 콜백도 `spin()` 안에서 다른 콜백과 같은 줄에 서서 실행됩니다(05장). 짧게 끝내야 합니다.
 
@@ -175,6 +179,8 @@ $ ros2 run ros2_study param_callbacks
 # 터미널 2
 $ ros2 param set /param_callbacks rate 2.0
 Set parameter successful
+$ ros2 param set /param_callbacks rate 2.0        # 같은 값으로 한 번 더
+Set parameter successful
 $ ros2 param set /param_callbacks greeting 안녕
 Set parameter successful
 $ ros2 param set /param_callbacks rate -1.0
@@ -184,16 +190,19 @@ Double value is: 2.0
 ```
 
 ```text
-# 터미널 1 로그 (시각 생략)
+# 터미널 1 로그 (시각 생략, 반복되는 hello 줄 일부 생략)
 [param_callbacks]: hello
-[param_callbacks]: 변경됨: rate = 2.0
+[param_callbacks]: 설정됨: rate = 2.0
+[param_callbacks]: 타이머 주기 변경 → 2.0 Hz
 [param_callbacks]: hello
-[param_callbacks]: 변경됨: greeting = 안녕
-[param_callbacks]: 안녕
+[param_callbacks]: 설정됨: rate = 2.0
+[param_callbacks]: hello
+[param_callbacks]: 설정됨: greeting = 안녕
 [param_callbacks]: 안녕
 ```
 
-`rate -1.0`은 검증에서 거절되어 값이 2.0 그대로이고, 거절된 변경에는 `변경됨` 로그(post_set)가 찍히지 않습니다.
+- 같은 값 `2.0`을 다시 넣었을 때도 post_set은 불려서 `설정됨`이 찍히지만, 비교 덕분에 `타이머 주기 변경`은 찍히지 않습니다.
+- `rate -1.0`은 검증(on_set)에서 거절되어 값이 2.0 그대로이고, 거절된 변경에는 post_set 자체가 불리지 않습니다.
 
 | 방식 | 장점 | 단점 |
 |---|---|---|

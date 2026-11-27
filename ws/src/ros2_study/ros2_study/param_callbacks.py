@@ -31,12 +31,17 @@ class ParamCallbacks(Node):
         return SetParametersResult(successful=True)
 
     def on_changed(self, params):
-        # 여기서는 이미 바뀐 값이 들어온다. 무거운 일은 피하고 짧게 반응만 한다.
+        # params = 이번 set 요청에 들어 있던 파라미터들. 노드의 모든 파라미터는 아니지만,
+        # 같은 값으로 다시 set 하거나 param load로 여러 개를 넣으면 값이 그대로여도 들어온다.
+        # 그래서 "실제로 바뀌었는지"는 직접 비교한다. 무거운 일은 피하고 짧게 반응만 한다.
         for p in params:
-            self.get_logger().info(f'변경됨: {p.name} = {p.value}')
+            self.get_logger().info(f'설정됨: {p.name} = {p.value}')
             if p.name == 'rate':
-                self.timer.timer_period_ns = int(1e9 / p.value)
-                self.timer.reset()  # 이미 잡힌 다음 틱도 새 주기로
+                period_ns = int(1e9 / p.value)
+                if self.timer.timer_period_ns != period_ns:  # 같은 값이면 타이머를 건드리지 않음
+                    self.timer.timer_period_ns = period_ns
+                    self.timer.reset()  # 이미 잡힌 다음 틱도 새 주기로
+                    self.get_logger().info(f'타이머 주기 변경 → {p.value} Hz')
 
     def on_timer(self):
         self.get_logger().info(self.get_parameter('greeting').value)
