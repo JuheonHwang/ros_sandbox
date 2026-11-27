@@ -1,3 +1,5 @@
+from glob import glob
+
 from setuptools import setup
 
 setup(
@@ -7,6 +9,8 @@ setup(
     data_files=[
         ('share/ament_index/resource_index/packages', ['resource/ros2_study']),
         ('share/ros2_study', ['package.xml']),
+        ('share/ros2_study/config', glob('config/*.yaml')),
+        ('share/ros2_study/launch', glob('launch/*.launch.py')),
     ],
     install_requires=['setuptools'],
     entry_points={'console_scripts': [
@@ -14,6 +18,9 @@ setup(
         'node_basics = ros2_study.node_basics:main',
         'param_callbacks = ros2_study.param_callbacks:main',
         'param_stages = ros2_study.param_stages:main',
+        # 01a 파라미터: 다른 노드의 파라미터 읽고 쓰기, 변경 이벤트 구독
+        'param_client = ros2_study.param_client:main',
+        'param_watcher = ros2_study.param_client:watcher',
         # 02 토픽
         'topic_talker = ros2_study.topic_demo:talker',
         'topic_listener = ros2_study.topic_demo:listener',

@@ -14,7 +14,8 @@ cd /ws && colcon build --symlink-install && source install/setup.bash
 
 | 장 | 주제 | 코드 | 핵심 질문 |
 |---|---|---|---|
-| [01](01_node.md) | 노드 | `ros2_study/node_basics.py`, `param_callbacks.py`, `param_stages.py` | 노드는 무엇이고, `spin()`은 무슨 일을 하나? |
+| [01](01_node.md) | 노드 | `ros2_study/node_basics.py` | 노드는 무엇이고, `spin()`은 무슨 일을 하나? |
+| [01a](01a_parameters.md) | 파라미터 | `param_callbacks.py`, `param_stages.py`, `param_client.py`, `config/`, `launch/` | 설정값은 어떻게 주고, 바뀔 때 어떻게 검증하고 반응하나? |
 | [02](02_topic.md) | 토픽 | `ros2_study/topic_demo.py` | 발행자와 구독자는 어떻게 서로를 찾나? |
 | [03](03_qos.md) | QoS | `ros2_study/qos_demo.py` | 왜 코드가 맞는데도 메시지가 안 올까? |
 | [04](04_service.md) | 서비스 | `ros2_study/service_demo.py` | 요청/응답은 언제 쓰고, 왜 데드락이 나나? |
@@ -25,7 +26,7 @@ cd /ws && colcon build --symlink-install && source install/setup.bash
 
 코드 경로는 `ws/src/ros2_study/`, `ws/src/latency_lab/`, `ws/src/ipc_lab/` 아래 기준입니다.
 
-- **01~04**는 발표 자료(노드·토픽·서비스)의 바탕입니다.
+- **01~04**는 발표 자료(노드·토픽·서비스)의 바탕입니다. **01a**(파라미터)는 01장을 읽은 뒤 언제든 봐도 되는 보충 장입니다.
 - **05~08**은 통신·지연·동기화를 더 깊게 보는 트랙입니다. 08장만 C++ 예제입니다.
 
 ## 공부하는 방법

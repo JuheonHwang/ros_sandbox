@@ -1,0 +1,6 @@
+# node_basics 노드의 파라미터.
+# 최상위 키 = 노드 이름(네임스페이스 포함 가능), 그 아래 ros__parameters (밑줄 두 개).
+node_basics:
+  ros__parameters:
+    rate: 2.0          # double 이므로 2 가 아니라 2.0
+    greeting: "YAML에서 온 인사"
