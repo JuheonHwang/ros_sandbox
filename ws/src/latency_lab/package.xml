@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>latency_lab</name>
+  <version>0.1.0</version>
+  <description>ROS 2 통신 지연(latency)과 메시지 동기화 실습</description>
+  <maintainer email="noreply@example.com">ros_sandbox</maintainer>
+  <license>Apache-2.0</license>
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>message_filters</exec_depend>
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>
