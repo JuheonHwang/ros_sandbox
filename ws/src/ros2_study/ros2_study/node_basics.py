@@ -15,6 +15,7 @@ class NodeBasics(Node):
         # 범위를 descriptor로 정해 두면 rate:=0 같은 잘못된 값은 ROS가 알아서 거부한다
         # (아래에서 1/rate 를 계산하므로 0이 들어오면 안 된다).
         self.declare_parameter('greeting', '안녕, ROS 2')
+
         self.declare_parameter(
             'rate', 1.0,
             ParameterDescriptor(
@@ -22,6 +23,8 @@ class NodeBasics(Node):
                 floating_point_range=[FloatingPointRange(from_value=0.1, to_value=10.0)],
             ),
         )
+        # # 예외 처리 안할때 예시
+        # self.declare_parameter('rate', 1.0)
 
         rate = self.get_parameter('rate').value
         # 타이머: rclpy.spin()이 도는 동안 주기마다 on_timer를 불러 준다.
