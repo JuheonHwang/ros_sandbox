@@ -1,0 +1,12 @@
+# 같은 서버를 여러 명이 써도 컨테이너가 겹치지 않도록 사용자별 이름 사용
+name: ros_sandbox_${USER:-user}
+
+services:
+  ros:
+    build: .
+    command: sleep infinity
+    environment:
+      - DISPLAY=${DISPLAY:-}
+    volumes:
+      - ./ws:/ws
+      - /tmp/.X11-unix:/tmp/.X11-unix
