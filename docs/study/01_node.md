@@ -209,6 +209,112 @@ Double value is: 2.0
 | 타이머에서 매번 다시 읽기 (`node_basics.py`) | 코드가 가장 단순 | 다음 틱까지 늦게 반영. 매번 읽는 비용 |
 | 파라미터 콜백 (`param_callbacks.py`) | 바뀌는 순간 반응, 잘못된 값 거절 | 콜백 코드가 늘어남 |
 
+#### 세 콜백을 한 번에: 요청 하나가 거치는 순서
+
+[`param_stages.py`](../../ws/src/ros2_study/ros2_study/param_stages.py)는 세 콜백을 모두 등록하고, 각 단계에서 받은 목록을 로그로 찍습니다. `ros2 param set` 한 번이 이렇게 흘러갑니다.
+
+```
+ros2 param set ...
+      │  요청 목록 [rate=50.0]
+      ▼
+ ① pre_set   요청 목록을 "고친다" ── 고친 목록을 return
+      │  [rate=10.0]
+      ▼
+ ② on_set    고친 목록을 "검증한다" ──┬─ 하나라도 거절 → 아무것도 안 바뀜, CLI에 reason 출력, ③ 안 불림
+      │                              └─ 통과 ↓
+      ▼                                   값 적용
+ ③ post_set  적용된 목록에 "반응한다" (거절 불가)
+```
+
+**① pre_set: 요청을 고친다**
+
+```python
+def pre_set(self, params):
+    out = []
+    for p in params:
+        if p.name == 'rate' and p.value > MAX_RATE:
+            p = Parameter('rate', value=MAX_RATE)  # 보정: 상한으로 깎기
+        out.append(p)
+        if p.name == 'mode' and p.value in MODE_RATES:
+            out.append(Parameter('rate', value=MODE_RATES[p.value]))  # 끼워 넣기
+    return out
+```
+
+- 받은 목록을 바탕으로 **새 목록을 돌려줍니다.** 돌려준 목록이 다음 단계(on_set)로 갑니다.
+- 쓰임새:
+  - **보정:** 범위를 넘는 값을 깎거나 단위를 맞춥니다(`rate 50` → `10`).
+  - **연관 파라미터 같이 바꾸기:** `mode fast` 하나만 바꿔도 거기에 맞는 `rate 10.0`이 같은 요청에 들어가서, 둘이 함께 검증되고 함께 적용됩니다.
+- 주의: 요청한 사람은 `Set parameter successful`만 보고, 값이 보정된 줄은 모릅니다. 보정했다면 로그를 남기세요.
+
+**② on_set: 검증하고 거절한다**
+
+```python
+def on_set(self, params):
+    for p in params:
+        if p.name == 'rate' and p.value <= 0.0:
+            return self.reject('rate는 0보다 커야 합니다')
+        if p.name == 'mode' and p.value not in MODE_RATES:
+            return self.reject(f'mode는 {"/".join(MODE_RATES)} 중 하나여야 합니다')
+        if p.name == 'greeting' and not p.value.strip():
+            return self.reject('greeting은 비울 수 없습니다')
+    return SetParametersResult(successful=True)
+```
+
+- `successful=False`를 돌려주면 이번 목록 **전체**가 적용되지 않고, `reason`이 요청한 쪽 CLI에 그대로 나옵니다.
+- 쓰임새: 범위 검사, 정해진 값만 허용(enum), 비어 있으면 안 되는 값, 여러 파라미터 사이의 관계 검사(예: `min < max`), "동작 중에는 이 값을 바꿀 수 없음".
+- 주의: **여기서는 아무것도 실행하지 마세요(부수 효과 금지).** 검증만 합니다. 여기서 타이머를 바꿨는데 뒤에서 거절되면, 값은 그대로인데 동작만 바뀐 상태가 됩니다. 반응은 ③에서 합니다.
+
+**③ post_set: 적용된 뒤 반응한다**
+
+```python
+def post_set(self, params):
+    for p in params:
+        if p.name == 'rate':
+            period_ns = int(1e9 / p.value)
+            if self.timer.timer_period_ns != period_ns:
+                self.timer.timer_period_ns = period_ns
+                self.timer.reset()
+```
+
+- 검증을 통과해 값이 **실제로 적용된 뒤에만** 불립니다. 거절할 수 없습니다.
+- 쓰임새: 타이머 주기 바꾸기, 장치 다시 연결하기, 바뀐 설정을 다른 노드에 알리기.
+- 주의: 위에서 본 것처럼 요청에 들어 있었다고 값이 바뀐 건 아니므로, 필요하면 직접 비교합니다. 짧게 끝내야 합니다(05장).
+
+**실행 결과** (터미널 1: `ros2 run ros2_study param_stages`, 터미널 2: 아래 명령. 실제 출력이며, 2초마다 찍히는 틱 보고 줄은 일부만 남김)
+
+| 터미널 2 요청 | ① pre_set이 고친 결과 | ② on_set | ③ post_set | 결과 |
+|---|---|---|---|---|
+| `rate 5.0` | 그대로 | 통과 | 타이머 5 Hz로 | 2초 틱 1회 → 10회 |
+| `mode fast` | `mode='fast', rate=10.0` (끼워 넣음) | 통과 | 타이머 10 Hz로 | 2초 틱 20회 |
+| `rate 50.0` | `rate=10.0` (보정) | 통과 | 이미 10이라 타이머 그대로 | `get rate` → 10.0 |
+| `mode turbo` | 그대로 | **거절** | 안 불림 | CLI: `mode는 slow/fast 중 하나여야 합니다` |
+| `greeting ''` | 그대로 | **거절** | 안 불림 | CLI: `greeting은 비울 수 없습니다` |
+| `rate -1.0` | 그대로 | **거절** | 안 불림 | CLI: `rate는 0보다 커야 합니다` |
+| `greeting 안녕` | 그대로 | 통과 | (rate 아님) | 보고 줄이 `[안녕]`으로 바뀜 |
+
+```text
+# 터미널 1 로그 일부 (시각 생략)
+[param_stages]: ① pre_set  받은 요청: mode='fast'
+[param_stages]:    pre_set  고친 요청: mode='fast', rate=10.0
+[param_stages]: ② on_set   검증할 목록: mode='fast', rate=10.0
+[param_stages]: ③ post_set 적용된 목록: mode='fast', rate=10.0
+[param_stages]:    post_set 타이머 주기 변경 → 10.0 Hz
+[param_stages]: [hello] 최근 2초 틱 20회
+[param_stages]: ① pre_set  받은 요청: rate=50.0
+[param_stages]:    pre_set  고친 요청: rate=10.0
+[param_stages]: ② on_set   검증할 목록: rate=10.0
+[param_stages]: ③ post_set 적용된 목록: rate=10.0
+[param_stages]: ① pre_set  받은 요청: mode='turbo'
+[param_stages]: ② on_set   검증할 목록: mode='turbo'
+[param_stages]:    on_set   거절: mode는 slow/fast 중 하나여야 합니다
+```
+
+한 줄로 정리하면 **"① 고치고, ② 판정하고, ③ 반응한다. 판정하는 곳에서 행동하지 않고, 반응하는 곳에서 판정하지 않는다."**
+
+<details><summary>생각해 보기: on_set 안에서 타이머 주기를 바꾸면 무엇이 문제일까?</summary>
+on_set 콜백은 여러 개 등록될 수 있고, 내 콜백이 통과시켜도 다른 콜백이 거절할 수 있습니다. 그러면 파라미터 값은 옛 값 그대로인데 타이머만 새 주기로 바뀌어, <code>ros2 param get</code>으로 본 값과 실제 동작이 달라집니다. 그래서 행동은 값이 확정된 뒤 불리는 post_set에서 합니다.
+</details>
+
 ### 5) 시작과 깔끔한 종료
 
 ```python

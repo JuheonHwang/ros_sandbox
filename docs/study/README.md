@@ -14,7 +14,7 @@ cd /ws && colcon build --symlink-install && source install/setup.bash
 
 | 장 | 주제 | 코드 | 핵심 질문 |
 |---|---|---|---|
-| [01](01_node.md) | 노드 | `ros2_study/node_basics.py`, `param_callbacks.py` | 노드는 무엇이고, `spin()`은 무슨 일을 하나? |
+| [01](01_node.md) | 노드 | `ros2_study/node_basics.py`, `param_callbacks.py`, `param_stages.py` | 노드는 무엇이고, `spin()`은 무슨 일을 하나? |
 | [02](02_topic.md) | 토픽 | `ros2_study/topic_demo.py` | 발행자와 구독자는 어떻게 서로를 찾나? |
 | [03](03_qos.md) | QoS | `ros2_study/qos_demo.py` | 왜 코드가 맞는데도 메시지가 안 올까? |
 | [04](04_service.md) | 서비스 | `ros2_study/service_demo.py` | 요청/응답은 언제 쓰고, 왜 데드락이 나나? |
