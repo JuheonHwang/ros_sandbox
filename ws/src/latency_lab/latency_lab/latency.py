@@ -2,7 +2,10 @@
 
 같은 PC 안에서는 두 노드가 같은 시계를 쓰므로 (받은 시각 - stamp)가 곧 단방향 지연이다.
 """
+import math
+
 import rclpy
+from rclpy._rclpy_pybind11 import RCLError
 from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, ReliabilityPolicy
@@ -21,7 +24,8 @@ def qos_from_params(node):
 def summarize(samples_ms):
     s = sorted(samples_ms)
     n = len(s)
-    return {'n': n, 'mean': sum(s) / n, 'p50': s[n // 2], 'p99': s[int(n * 0.99)], 'max': s[-1]}
+    rank = lambda q: s[max(0, math.ceil(q * n) - 1)]  # nearest-rank 백분위수
+    return {'n': n, 'mean': sum(s) / n, 'p50': rank(0.50), 'p99': rank(0.99), 'max': s[-1]}
 
 
 class Talker(Node):
@@ -75,8 +79,10 @@ def run(node_cls):
     rclpy.init()
     try:
         rclpy.spin(node_cls())
-    except (KeyboardInterrupt, ExternalShutdownException):
-        pass
+    except (KeyboardInterrupt, ExternalShutdownException, RCLError):
+        pass  # Ctrl+C 도중 context가 먼저 닫히면 RCLError가 날 수 있음: 종료 중이라 무시
+    finally:
+        rclpy.try_shutdown()
 
 
 def talker():
@@ -89,5 +95,5 @@ def listener():
 
 if __name__ == '__main__':
     r = summarize([float(i) for i in range(1, 101)])
-    assert (r['n'], r['mean'], r['p50'], r['p99'], r['max']) == (100, 50.5, 51.0, 100.0, 100.0), r
+    assert (r['n'], r['mean'], r['p50'], r['p99'], r['max']) == (100, 50.5, 50.0, 99.0, 100.0), r
     print('summarize OK')

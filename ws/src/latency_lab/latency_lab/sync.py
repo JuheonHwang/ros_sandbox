@@ -8,6 +8,7 @@ import random
 import rclpy
 from message_filters import ApproximateTimeSynchronizer, Subscriber
 from rclpy.duration import Duration
+from rclpy._rclpy_pybind11 import RCLError
 from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
 from rclpy.time import Time
@@ -61,8 +62,10 @@ def run(node_cls):
     rclpy.init()
     try:
         rclpy.spin(node_cls())
-    except (KeyboardInterrupt, ExternalShutdownException):
-        pass
+    except (KeyboardInterrupt, ExternalShutdownException, RCLError):
+        pass  # Ctrl+C 도중 context가 먼저 닫히면 RCLError가 날 수 있음: 종료 중이라 무시
+    finally:
+        rclpy.try_shutdown()
 
 
 def fake_sensors():

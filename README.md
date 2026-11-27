@@ -44,6 +44,10 @@ source install/setup.bash          # 새 셸을 열면 자동으로 적용됩니
 - `build/`, `install/`, `log/`는 git에서 제외됩니다.
 - 컨테이너 안에서는 root로 실행되므로 호스트에서 보면 이 파일들의 소유자가 root입니다. 지울 때는 컨테이너 안에서 지우세요.
 
+## 학습 자료
+
+[docs/study/](docs/study/README.md)에 주제별 예제 코드와 설명 문서가 있습니다. 노드 → 토픽 → QoS → 서비스 → executor → 지연 측정 → 동기화 순서로 공부합니다.
+
 ## 실습: 통신 지연과 동기화 (`latency_lab`)
 
 `ws/src/latency_lab`은 토픽 지연(latency)과 센서 동기화를 직접 측정해 보는 패키지입니다. 빌드는 한 번만 하면 됩니다.
