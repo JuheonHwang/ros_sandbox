@@ -4,6 +4,8 @@ name: ros_sandbox_${USER:-user}
 services:
   ros:
     build: .
+    # PID 1에 작은 init(tini)을 둬서 끝난 노드 프로세스를 정리(좀비 방지)
+    init: true
     command: sleep infinity
     environment:
       - DISPLAY=${DISPLAY:-}
