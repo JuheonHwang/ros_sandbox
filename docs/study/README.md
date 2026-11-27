@@ -21,11 +21,12 @@ cd /ws && colcon build --symlink-install && source install/setup.bash
 | [05](05_executor.md) | Executor와 콜백 그룹 | `ros2_study/executor_demo.py` | 콜백 하나가 느리면 왜 다른 콜백도 늦어지나? |
 | [06](06_latency.md) | 통신 지연 측정 | `latency_lab/latency.py` | 메시지는 얼마나 늦게 도착하고, 무엇이 지연을 좌우하나? |
 | [07](07_sync.md) | 센서 동기화 | `latency_lab/sync.py` | 주기가 다른 센서 데이터를 어떻게 같은 순간끼리 묶나? |
+| [08](08_intra_process.md) | 같은 프로세스 통신 (C++) | `ipc_lab/src/*.cpp` | 노드를 한 프로세스에 합치면 지연이 얼마나 줄어드나? |
 
-코드 경로는 `ws/src/ros2_study/`, `ws/src/latency_lab/` 아래 기준입니다.
+코드 경로는 `ws/src/ros2_study/`, `ws/src/latency_lab/`, `ws/src/ipc_lab/` 아래 기준입니다.
 
 - **01~04**는 발표 자료(노드·토픽·서비스)의 바탕입니다.
-- **05~07**은 통신·지연·동기화를 더 깊게 보는 트랙입니다.
+- **05~08**은 통신·지연·동기화를 더 깊게 보는 트랙입니다. 08장만 C++ 예제입니다.
 
 ## 공부하는 방법
 

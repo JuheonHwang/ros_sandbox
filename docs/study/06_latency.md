@@ -27,6 +27,16 @@
 - ③은 **RMW(DDS 구현체)** 와 **QoS** 에 따라 달라집니다. reliable이면 잃어버린 조각을 다시 보냅니다.
 - ④⑤는 **수신 측이 바쁠 때** 커집니다. 05장에서 본 "다른 콜백이 끝나기를 기다리는 시간"이 바로 ⑤입니다.
 
+### 같은 프로세스로 합치면?
+
+C++(rclcpp) 노드를 Composition으로 한 프로세스에 넣고 **intra-process 통신**을 켜면, 같은 프로세스 안의 발행자→구독자 메시지는 DDS를 거치지 않고 메모리 안에서 직접 전달됩니다. 위 그림에서:
+
+- **빠지는 것**: ② 직렬화, ③ DDS 전송, ⑥의 역직렬화. 메시지를 `std::unique_ptr`로 publish하면 복사 없이 포인터를 넘길 수도 있습니다.
+- **남는 것**: ⑤ executor가 깨어나 콜백을 고르는 대기, 그리고 콜백 실행 자체. ④는 DDS 수신 큐 대신 rclcpp 내부 버퍼가 맡습니다.
+- **대가**: 한 프로세스이므로 한 노드가 죽으면 같이 죽습니다([01장](01_node.md)).
+
+rclpy에는 intra-process 통신 기능이 없습니다. 게다가 이 장의 talker와 listener는 별도 프로세스이므로, **이 장의 Python 숫자에는 ②③⑥이 항상 들어 있습니다.** C++로 같은 프로세스에서 잰 결과는 [08장](08_intra_process.md)에서 봅니다.
+
 ### 왜 같은 PC에서는 이 방법이 맞나
 
 ```
@@ -307,6 +317,8 @@ average rate: 16.799
 - 여러 RMW 함께 쓰기: https://docs.ros.org/en/jazzy/How-To-Guides/Working-with-multiple-RMW-implementations.html
 - DDS 튜닝(큰 메시지, 네트워크 버퍼): https://docs.ros.org/en/jazzy/How-To-Guides/DDS-tuning.html
 - 토픽 통계(Topic Statistics): https://docs.ros.org/en/jazzy/Concepts/Intermediate/About-Topic-Statistics.html
+- Composition 개념: https://docs.ros.org/en/jazzy/Concepts/Intermediate/About-Composition.html
+- Intra-process 통신 데모(C++): https://docs.ros.org/en/jazzy/Tutorials/Demos/Intra-Process-Communication.html
 - ros2_tracing 튜토리얼(콜백·통신 구간을 추적): https://docs.ros.org/en/jazzy/Tutorials/Advanced/ROS2-Tracing-Trace-and-Analyze.html
 - ros2_tracing 저장소: https://github.com/ros2/ros2_tracing
 - CARET (ros2_tracing 기반 end-to-end 지연 분석 도구): https://tier4.github.io/caret_doc/latest/
